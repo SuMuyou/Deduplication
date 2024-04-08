@@ -1,0 +1,10 @@
+<component name="ArtifactManager">
+  <artifact type="jar" build-on-make="true" name="deduplication:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/deduplication_jar</output-path>
+    <root id="archive" name="deduplication.jar">
+      <element id="module-output" name="deduplication" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../../scala/lib/scala-library.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/../../../scala/lib/scala-reflect.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
