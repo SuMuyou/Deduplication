@@ -25,7 +25,7 @@ object Controler {
     spark.stop()
     println("--------start-----------")
 
-    val ClusterNum = allCluster.length
+    val ClusterNum = 20//allCluster.length
     var n = 0
     while( n < ClusterNum){
 
@@ -34,10 +34,10 @@ object Controler {
         x = ClusterNum
       }
       println(f"------Cluster ${n} to ${x}------------")
-      val arr = allCluster.view.slice(n,x).toArray.apply(6)
+      val arr = allCluster.view.slice(n,x).toArray
       n = n + 20
-      //Clusterdedup.dedup(arr)
-      test_OpenAndFilter.test(arr)
+      Clusterdedup.dedup(arr)
+
       println("--------over-end------------")
     }
     println("--------end-----------")

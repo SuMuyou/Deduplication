@@ -1,5 +1,5 @@
 import Cluster_Dedup.outputSchema
-import Main.{featureNum, getCount, homePath, outputPath, rawSchema, readData, webSchema}
+import Main.{featureNum, files, getCount, homePath, inputPath, outputPath, rawSchema, readData, webSchema}
 import org.apache.spark.ml.feature.{HashingTF, MinHashLSH, Tokenizer}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
@@ -11,6 +11,21 @@ import org.apache.spark.sql.functions._
 
 import java.io.{FileWriter, PrintWriter}
 object Clusterdedup {
+  val files: Seq[String] = Seq(
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00000.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00001.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00002.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00003.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00004.warc_out.txt",
+    //    input_path + "CC-MAIN-20200702045758-20200702075758-00005.warc_out.txt",
+    //    input_path + "CC-MAIN-20200702045758-20200702075758-00006.warc_out.txt",
+    //    input_path + "CC-MAIN-20200702045758-20200702075758-00007.warc_out.txt",
+    //    input_path + "CC-MAIN-20200702045758-20200702075758-00008.warc_out.txt",
+    //    input_path + "CC-MAIN-20200702045758-20200702075758-00009.warc_out.txt",
+  )
+  def getFileRDDbyName(allFileRDD: RDD[(String, String)], fileName: String):RDD[String] = {
+     allFileRDD.filter{ case (path, content) => path.contains(fileName) }.values
+  }
   //  val parquetPath = homePath + "parquet/"
   val parquetPath = s"${outputPath}cluster_web"
   val outputSchema = StructType(
@@ -48,7 +63,8 @@ object Clusterdedup {
       .appName("Wet text deduplication")
       .config(conf)
       .getOrCreate()
-    spark.sparkContext.setCheckpointDir("/user/wangzhaoyang/checkpoint")
+    val allFilesRDD = spark.sparkContext.wholeTextFiles(inputPath+'*')
+    //spark.sparkContext.setCheckpointDir("/user/wangzhaoyang/checkpoint")
 //    import spark.implicits._
 //    """读取hashes.parquet文件"""
 //    val parquetFile = spark.read.parquet(parquetPath)
@@ -64,7 +80,8 @@ object Clusterdedup {
       val groupedFileId = fileId.groupBy(_._1).view.mapValues(_.map(_._2)).toArray
       val Cluster_RDD = spark.sparkContext.parallelize(groupedFileId).collect().flatMap{case (file,lineIds) =>
         val filename =  file.replace(".wet","_out.txt")
-        val fileRDD = spark.sparkContext.textFile(s"${homePath}wet/$filename")
+        val fileRDD = getFileRDDbyName(allFilesRDD, filename)
+        //val fileRDD = spark.sparkContext.textFile(s"${homePath}wet/$filename")
         val fileLineDf = readLineData(spark,fileRDD)
         lineIds.map{lineId =>
           val lId = lineId.toInt

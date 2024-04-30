@@ -22,13 +22,18 @@ object test_OpenAndFilter {
     //    val parquetString = parquetRDD.take(40)
     val startTime = System.currentTimeMillis()
     //var outputData = spark.createDataFrame(spark.sparkContext.emptyRDD[Row], outputSchema)
-
+    var time1 = 0L
     val fileId = arr.split('|').map(str => {val part = str.split('_')
         (part(0),part(1).toInt)
       })
       val groupedFileId = fileId.groupBy(_._1).view.mapValues(_.map(_._2)).toArray
       val Cluster_RDD = spark.sparkContext.parallelize(groupedFileId).collect().flatMap{case (file,lineIds) => val filename =  file.replace(".wet","_out.txt")
+        val time0 = System.currentTimeMillis()
+
         val fileRDD = spark.sparkContext.textFile(s"${homePath}wet/$filename")
+        //fileRDD.count()
+        //time1 = System.currentTimeMillis()
+        //println(s"Open file Time: ${(time1-time0)/1000} 秒")
         val fileLineDf = readLineData(spark,fileRDD)
         lineIds.map{lineId =>
           val lId = lineId.toInt

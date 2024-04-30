@@ -15,10 +15,10 @@ object Main {
   //val inputPath = homePath + "wet/CC-MAIN-20200702045758-20200702075758-00000.warc_out.txt"
   val files: Seq[String] = Seq(
     inputPath + "CC-MAIN-20200702045758-20200702075758-00000.warc_out.txt",
-//    inputPath + "CC-MAIN-20200702045758-20200702075758-00001.warc_out.txt",
-//    inputPath + "CC-MAIN-20200702045758-20200702075758-00002.warc_out.txt",
-//    inputPath + "CC-MAIN-20200702045758-20200702075758-00003.warc_out.txt",
-//    inputPath + "CC-MAIN-20200702045758-20200702075758-00004.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00001.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00002.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00003.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00004.warc_out.txt",
     //    input_path + "CC-MAIN-20200702045758-20200702075758-00005.warc_out.txt",
     //    input_path + "CC-MAIN-20200702045758-20200702075758-00006.warc_out.txt",
     //    input_path + "CC-MAIN-20200702045758-20200702075758-00007.warc_out.txt",
