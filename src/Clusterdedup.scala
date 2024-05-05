@@ -23,8 +23,11 @@ object Clusterdedup {
     //    input_path + "CC-MAIN-20200702045758-20200702075758-00008.warc_out.txt",
     //    input_path + "CC-MAIN-20200702045758-20200702075758-00009.warc_out.txt",
   )
-  def getFileRDDbyName(allFileRDD: RDD[(String, String)], fileName: String):RDD[String] = {
-     allFileRDD.filter{ case (path, content) => path.contains(fileName) }.values
+  def getFileRDDbyName(rddList: List[(String,RDD[String])], fileName: String): RDD[String] = {
+    val matchedRDD = rddList.find { case (filePath, _) => filePath.contains(fileName) }
+    matchedRDD match {
+      case Some((_,rdd)) => rdd
+    }
   }
   //  val parquetPath = homePath + "parquet/"
   val parquetPath = s"${outputPath}cluster_web"
@@ -63,7 +66,11 @@ object Clusterdedup {
       .appName("Wet text deduplication")
       .config(conf)
       .getOrCreate()
-    val allFilesRDD = spark.sparkContext.wholeTextFiles(inputPath+'*')
+    var rddList: List[(String, org.apache.spark.rdd.RDD[String])] = List()
+    for (filePath <- files){
+      val rdd = spark.sparkContext.textFile(filePath)
+      rddList = rddList :+ (filePath, rdd)
+    }
     //spark.sparkContext.setCheckpointDir("/user/wangzhaoyang/checkpoint")
 //    import spark.implicits._
 //    """读取hashes.parquet文件"""
@@ -80,9 +87,10 @@ object Clusterdedup {
       val groupedFileId = fileId.groupBy(_._1).view.mapValues(_.map(_._2)).toArray
       val Cluster_RDD = spark.sparkContext.parallelize(groupedFileId).collect().flatMap{case (file,lineIds) =>
         val filename =  file.replace(".wet","_out.txt")
-        val fileRDD = getFileRDDbyName(allFilesRDD, filename)
+        val fileRDD = getFileRDDbyName(rddList, filename)
         //val fileRDD = spark.sparkContext.textFile(s"${homePath}wet/$filename")
         val fileLineDf = readLineData(spark,fileRDD)
+        //val fileRDD = spark.sparkContext.textFile(s"${homePath}wet/$filename")
         lineIds.map{lineId =>
           val lId = lineId.toInt
           fileLineDf.filter { case(_, index,_,_,_,_) => index.toInt == lId }

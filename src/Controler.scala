@@ -25,7 +25,7 @@ object Controler {
     spark.stop()
     println("--------start-----------")
 
-    val ClusterNum = 20//allCluster.length
+    val ClusterNum = 40//allCluster.length
     var n = 0
     while( n < ClusterNum){
 

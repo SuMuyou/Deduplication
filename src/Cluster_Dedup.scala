@@ -1,4 +1,4 @@
-import Main.{getCount, featureNum, homePath, outputPath, rawSchema, readData, webSchema}
+import Main.{featureNum, getCount, homePath, inputPath, outputPath, rawSchema, readData, webSchema}
 import org.apache.spark.ml.feature.{HashingTF, MinHashLSH, Tokenizer}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
@@ -10,6 +10,24 @@ import org.apache.spark.sql.functions._
 
 import java.io.PrintWriter
 object Cluster_Dedup {
+  val files: Seq[String] = Seq(
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00000.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00001.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00002.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00003.warc_out.txt",
+    inputPath + "CC-MAIN-20200702045758-20200702075758-00004.warc_out.txt",
+    //    input_path + "CC-MAIN-20200702045758-20200702075758-00005.warc_out.txt",
+    //    input_path + "CC-MAIN-20200702045758-20200702075758-00006.warc_out.txt",
+    //    input_path + "CC-MAIN-20200702045758-20200702075758-00007.warc_out.txt",
+    //    input_path + "CC-MAIN-20200702045758-20200702075758-00008.warc_out.txt",
+    //    input_path + "CC-MAIN-20200702045758-20200702075758-00009.warc_out.txt",
+  )
+  def getFileRDDbyName(rddList: List[(String,RDD[String])], fileName: String): RDD[String] = {
+    val matchedRDD = rddList.find { case (filePath, _) => filePath.contains(fileName) }
+    matchedRDD match {
+      case Some((_,rdd)) => rdd
+    }
+  }
   //  val parquetPath = homePath + "parquet/"
   val parquetPath = s"${outputPath}cluster_web"
   val outputSchema = StructType(
@@ -50,10 +68,15 @@ object Cluster_Dedup {
     """读取hashes.parquet文件"""
     val parquetFile = spark.read.parquet(parquetPath)
     val parquetRDD = parquetFile.rdd.map(line => line.getString(0))
+    var rddList: List[(String, org.apache.spark.rdd.RDD[String])] = List()
+    for (filePath <- files){
+      val rdd = spark.sparkContext.textFile(filePath)
+      rddList = rddList :+ (filePath, rdd)
+    }
     //    println(s"parquetRDD.count: $parquetRDD.count")
     var outputData = spark.createDataFrame(spark.sparkContext.emptyRDD[Row], outputSchema)
     parquetRDD.collect()
-    parquetRDD.take(30).foreach(line => { //不能去掉，还是会发生空指针问题，原因在于sparkSession只在Driver上，executor不能调用
+    parquetRDD.foreach(line => { //不能去掉，还是会发生空指针问题，原因在于sparkSession只在Driver上，executor不能调用
       val fileId = line.split('|').map(str => {
         val part = str.split('_')
         (part(0),part(1).toInt)
@@ -63,9 +86,10 @@ object Cluster_Dedup {
       val zippedFileId = file_name.zip(rowNum)
       val MapFileId = zippedFileId.groupBy(_._1).view.mapValues(_.map(_._2)).toArray
       MapFileId.length
-      val Cluster_RDD = spark.sparkContext.parallelize(MapFileId).collect().flatMap{case (file,lineIds) =>
+      val Cluster_RDD = spark.sparkContext.parallelize(MapFileId).flatMap{case (file,lineIds) =>
         val filename =  file.replace(".wet","_out.txt")
-        val fileRDD = spark.sparkContext.textFile(s"${homePath}wet/$filename")
+        val fileRDD = getFileRDDbyName(rddList, filename)
+        //val fileRDD = spark.sparkContext.textFile(s"${homePath}wet/$filename")
         val fileLineDf = readLineData(spark,fileRDD)
         lineIds.map{lineId =>
           val lId = lineId.toInt
