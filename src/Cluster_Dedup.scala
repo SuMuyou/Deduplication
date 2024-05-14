@@ -9,6 +9,7 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 
 import java.io.PrintWriter
+import scala.collection.mutable.ListBuffer
 object Cluster_Dedup {
   val files: Seq[String] = Seq(
     inputPath + "CC-MAIN-20200702045758-20200702075758-00000.warc_out.txt",
@@ -60,6 +61,7 @@ object Cluster_Dedup {
     val conf: SparkConf = new SparkConf()
       .setAppName("Cluster deduplicate")
       .set("spark.executor.memory", "32g")
+      .set("spark.executor.extraJavaOptions", "-Xss100M")
     val spark: SparkSession = SparkSession.builder()
       .appName("Wet text deduplication")
       .config(conf)
@@ -68,15 +70,17 @@ object Cluster_Dedup {
     """读取hashes.parquet文件"""
     val parquetFile = spark.read.parquet(parquetPath)
     val parquetRDD = parquetFile.rdd.map(line => line.getString(0))
+
+    val parquetList = parquetRDD.collect().toList
     var rddList: List[(String, org.apache.spark.rdd.RDD[String])] = List()
     for (filePath <- files){
       val rdd = spark.sparkContext.textFile(filePath)
       rddList = rddList :+ (filePath, rdd)
     }
+
     //    println(s"parquetRDD.count: $parquetRDD.count")
     var outputData = spark.createDataFrame(spark.sparkContext.emptyRDD[Row], outputSchema)
-    parquetRDD.collect()
-    parquetRDD.foreach(line => { //不能去掉，还是会发生空指针问题，原因在于sparkSession只在Driver上，executor不能调用
+    parquetList.foreach(line => {
       val fileId = line.split('|').map(str => {
         val part = str.split('_')
         (part(0),part(1).toInt)
@@ -85,8 +89,8 @@ object Cluster_Dedup {
       val rowNum = fileId._2
       val zippedFileId = file_name.zip(rowNum)
       val MapFileId = zippedFileId.groupBy(_._1).view.mapValues(_.map(_._2)).toArray
-      MapFileId.length
-      val Cluster_RDD = spark.sparkContext.parallelize(MapFileId).flatMap{case (file,lineIds) =>
+
+      val ClusterList = MapFileId.flatMap{case (file,lineIds) =>
         val filename =  file.replace(".wet","_out.txt")
         val fileRDD = getFileRDDbyName(rddList, filename)
         //val fileRDD = spark.sparkContext.textFile(s"${homePath}wet/$filename")
@@ -96,7 +100,17 @@ object Cluster_Dedup {
           fileLineDf.filter { case(_, index,_,_,_,_) => index.toInt == lId }
         }
       }
-      val mergedRDD = Cluster_RDD.reduce(_ union _)
+//      val Cluster_RDD = spark.sparkContext.parallelize(MapFileId).collect().flatMap{case (file,lineIds) =>
+//        val filename =  file.replace(".wet","_out.txt")
+//        val fileRDD = getFileRDDbyName(rddList, filename)
+//        //val fileRDD = spark.sparkContext.textFile(s"${homePath}wet/$filename")
+//        val fileLineDf = readLineData(spark,fileRDD)
+//        lineIds.map{lineId =>
+//          val lId = lineId.toInt
+//          fileLineDf.filter { case(_, index,_,_,_,_) => index.toInt == lId }
+//        }
+//      }
+      val mergedRDD = ClusterList.reduce(_ union _)
       val rawRDD = mergedRDD.map(row => {Row(row._1,row._3.toInt,row._4.toInt,row._5.toInt,row._6)})
       val rawData = spark.createDataFrame(rawRDD,rawSchema)
       rawData.show(1,true) //必须使用show或其他操作中断spark的惰性执行，否则会产生stackOverflow
@@ -117,10 +131,9 @@ object Cluster_Dedup {
       val rawId = rawData.drop("length", "content")
       val dedupData = rawId.except(leftId).toDF
       dedupData.show(1,true)
-//      if (dedupData.count > 0) {
-//        println("not empty")
-//      }
+    if (dedupData.count > 0) {
       outputData = outputData.union(dedupData)
+    }
     })
     //    outputData.repartition(1)
     //      .write

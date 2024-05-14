@@ -11,6 +11,8 @@ object Controler {
     val conf: SparkConf = new SparkConf()
       .setAppName("Cluster deduplicate")
       .set("spark.executor.memory", "32g")
+      .set("spark.executor.extraJavaOptions", "-Xss100M")
+      .set("spark.driver.extraJavaOptions", "-Xss100M")
     val spark: SparkSession = SparkSession.builder()
       .appName("Wet text deduplication")
       .config(conf)
@@ -22,24 +24,27 @@ object Controler {
 
     val parquetRDD = parquetFile.rdd.map(line => line.getString(0))
     val allCluster = parquetRDD.collect()
+    val arr = allCluster
     spark.stop()
     println("--------start-----------")
 
-    val ClusterNum = 40//allCluster.length
-    var n = 0
-    while( n < ClusterNum){
 
-      var x = n + 20
-      if (n + 20 > ClusterNum){
-        x = ClusterNum
-      }
-      println(f"------Cluster ${n} to ${x}------------")
-      val arr = allCluster.view.slice(n,x).toArray
-      n = n + 20
-      Clusterdedup.dedup(arr)
-
-      println("--------over-end------------")
-    }
+    Clusterdedup.dedup(arr)
+//    val ClusterNum = 30//allCluster.length
+//    var n = 20
+//    while( n < ClusterNum){
+//
+//      var x = n + 20
+//      if (n + 20 > ClusterNum){
+//        x = ClusterNum
+//      }
+//      println(f"------Cluster ${n} to ${x}------------")
+//      val arr = allCluster.view.slice(n,x).toArray
+//
+//      Clusterdedup.dedup(arr)
+//      n = n + 20
+//      println("--------over-end------------")
+//    }
     println("--------end-----------")
     val endTime = System.currentTimeMillis()
     println(s"total time: ${(endTime - startTime)/1000} s")
